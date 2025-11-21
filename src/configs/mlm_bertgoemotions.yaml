@@ -1,0 +1,22 @@
+model_name_or_path: "bhadresh-savani/bert-base-go-emotion"
+
+train_files:
+  - "data/processed/biomed_mlm_2.jsonl"
+  - "data/processed/biomed_mlm.jsonl"
+
+output_dir: "outputs/mlm_bert_goemotions"
+
+# Training hyperparameters
+max_steps: 2000          # or use num_train_epochs instead
+per_device_train_batch_size: 8
+learning_rate: 5e-5
+weight_decay: 0.01
+warmup_steps: 100
+
+logging_steps: 50
+save_steps: 500
+save_total_limit: 2
+
+# Tokenization / chunking
+max_seq_length: 128
+mlm_probability: 0.15
