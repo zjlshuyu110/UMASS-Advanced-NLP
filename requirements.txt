@@ -5,6 +5,6 @@ evaluate
 torch
 scikit-learn
 pandas
-numpy
+numpy<2.0.0
 tqdm
 pyyaml
