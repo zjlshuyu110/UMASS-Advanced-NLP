@@ -1,0 +1,10 @@
+transformers>=4.44
+datasets>=3.0
+accelerate>=0.34
+evaluate
+torch
+scikit-learn
+pandas
+numpy
+tqdm
+pyyaml
