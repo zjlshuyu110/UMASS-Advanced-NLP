@@ -3,6 +3,8 @@ model_name_or_path: "bhadresh-savani/bert-base-go-emotion"
 train_files:
   - "data/processed/biomed_mlm_2.jsonl"
   - "data/processed/biomed_mlm.jsonl"
+  - "data/processed/finance_mlm1.jsonl"
+  - "data/processed/finance_mlm2.jsonl"
 
 output_dir: "outputs/mlm_bert_goemotions"
 
