@@ -13,7 +13,7 @@ def normalize(text: str) -> str:
 
 
 def download_finance_if_needed():
-    """
+    """ 
     Download lukecarlate/english_finance_news into RAW_DIR
     if not present.
     """

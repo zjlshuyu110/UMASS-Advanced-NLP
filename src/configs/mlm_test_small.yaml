@@ -1,0 +1,21 @@
+model_name_or_path: "bhadresh-savani/bert-base-go-emotion"
+
+train_files:
+  - "data/processed/biomed_mlm.jsonl"
+  - "data/processed/biomed_mlm_2.jsonl"
+
+output_dir: "outputs/mlm_test_small"
+
+# 小批量测试参数
+max_steps: 10              # 只训练10步 (测试用)
+per_device_train_batch_size: 8
+learning_rate: 5e-5
+weight_decay: 0.01
+warmup_steps: 0            # 测试时不需要热身
+
+logging_steps: 1           # 每1步记录一次
+save_steps: 5              # 每5步保存一次
+save_total_limit: 1        # 只保留最后一个模型
+
+max_seq_length: 128
+mlm_probability: 0.15

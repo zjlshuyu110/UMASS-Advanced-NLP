@@ -213,3 +213,12 @@ __marimo__/
 *.csv
 *.tsv
 *.jsonl
+# Exclude models directory
+outputs/
+*.safetensors
+*.bin
+
+# Exclude conversation records
+CONVERSATION_RECORD.md
+CONVERSATION_RECORD_SESSION2.md
+CONVERSATION_RECORD_UPDATED.md
