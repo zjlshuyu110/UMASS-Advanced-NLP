@@ -8,7 +8,7 @@ train_files:
 
 output_dir: "outputs/mlm_bert_goemotions"
 
-# Training hyperparameters
+# Training hyperparameters # grid search do!!
 max_steps: 2000          # or use num_train_epochs instead
 per_device_train_batch_size: 8
 learning_rate: 5e-5
