@@ -1,5 +1,6 @@
 # src/configs/sft_4_biomed_mlm_with_adapter.yaml
-model_name_or_path: "outputs/mlm_biomed"
+model_name_or_path: "/content/drive/MyDrive/ANLP_models/mlm_biomed"
+#put correct path to the biomed mlm model above
 
 train_files:
   - "data/processed/biomed_sentiment_train.jsonl"

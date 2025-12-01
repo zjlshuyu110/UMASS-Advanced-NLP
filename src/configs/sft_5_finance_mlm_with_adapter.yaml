@@ -1,5 +1,6 @@
 # src/configs/sft_5_finance_mlm_with_adapter.yaml
-model_name_or_path: "outputs/mlm_finance"
+model_name_or_path: "/content/drive/MyDrive/ANLP_models/mlm_biomed"
+#put correct path to the biomed mlm model above
 
 train_files:
   - "data/processed/finance_sentiment_train.jsonl"
