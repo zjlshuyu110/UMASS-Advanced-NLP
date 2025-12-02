@@ -225,3 +225,4 @@ outputs/
 CONVERSATION_RECORD.md
 CONVERSATION_RECORD_SESSION2.md
 CONVERSATION_RECORD_UPDATED.md
+data/raw/DrugReviews.csv # already added in your working tree
