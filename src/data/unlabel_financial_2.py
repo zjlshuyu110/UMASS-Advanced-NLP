@@ -4,7 +4,7 @@ import re
 from datasets import load_dataset
 
 RAW_DIR = Path("data/raw/financial")
-OUT_PATH = Path("data/processed/finance_mlm1.jsonl")
+OUT_PATH = Path("data/processed/unlabel_financial_2.jsonl")
 
 def normalize(text: str) -> str:
     """Normalize whitespace and strip."""

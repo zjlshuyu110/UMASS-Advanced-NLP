@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 import re
 
-OUT_PATH = Path("data/processed/biomed_mlm_2.jsonl")
+OUT_PATH = Path("data/processed/unlabel_bio_2.jsonl")
 
 def normalize(text: str) -> str:
     text = re.sub(r"\s+", " ", text)

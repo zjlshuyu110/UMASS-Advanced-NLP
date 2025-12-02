@@ -10,7 +10,7 @@ import json
 import re
 from datasets import load_dataset
 
-OUT_PATH = Path("data/processed/fiqa_labeled.jsonl")
+OUT_PATH = Path("data/processed/label_financial_1.jsonl")
 
 def normalize(text: str) -> str:
     """Normalize whitespace and strip."""

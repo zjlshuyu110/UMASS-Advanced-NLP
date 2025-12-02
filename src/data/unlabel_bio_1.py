@@ -3,8 +3,8 @@ import json
 import re
 import kagglehub
 
-RAW_DIR = Path("data/raw/bioasq")
-OUT_PATH = Path("data/processed/biomed_mlm.jsonl")
+RAW_DIR = Path("data/raw/bio")
+OUT_PATH = Path("data/processed/unlabel_bio_1.jsonl")
 
 def normalize(text: str) -> str:
     text = re.sub(r"\s+", " ", text)

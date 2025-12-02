@@ -4,7 +4,7 @@ import re
 from datasets import load_dataset
 
 RAW_DIR = Path("data/raw/bio")
-OUT_PATH = Path("data/processed/clean_bio_unlabel_3.jsonl")
+OUT_PATH = Path("data/processed/unlabel_bio_3.jsonl")
 
 def normalize(text: str) -> str:
     """Normalize whitespace and strip."""

@@ -15,7 +15,7 @@ import re
 from datasets import load_dataset
 
 RAW_DIR = Path("data/raw/financial")
-OUT_PATH = Path("data/processed/financial_with_label_1.jsonl")
+OUT_PATH = Path("data/processed/label_financial_2.jsonl")
 
 
 def normalize(text: str) -> str:
