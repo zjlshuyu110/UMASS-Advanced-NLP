@@ -3,8 +3,8 @@ import json
 import re
 from datasets import load_dataset
 
-RAW_DIR = Path("data/raw/finance")
-OUT_PATH = Path("data/processed/finance_mlm2.jsonl")
+RAW_DIR = Path("data/raw/bio")
+OUT_PATH = Path("data/processed/clean_bio_unlabel_3.jsonl")
 
 def normalize(text: str) -> str:
     """Normalize whitespace and strip."""
@@ -14,19 +14,19 @@ def normalize(text: str) -> str:
 
 def download_finance_if_needed():
     """ 
-    Download lukecarlate/english_finance_news into RAW_DIR
+    Download medical_text into RAW_DIR
     if not present.
     """
     if not RAW_DIR.exists() or not any(RAW_DIR.iterdir()):
-        print("Downloading english_finance_news from HuggingFace...")
+        print("Downloading medical_text from HuggingFace...")
 
         RAW_DIR.mkdir(parents=True, exist_ok=True)
 
         # Load dataset directly
-        ds = load_dataset("lukecarlate/english_finance_news", split="train")
+        ds = load_dataset("123rc/medical_text", split="train")
 
         # Save raw JSONL for reproducibility
-        raw_path = RAW_DIR / "finance_news_raw.jsonl"
+        raw_path = RAW_DIR / "clean_bio_unlabel_3.jsonl"
         with raw_path.open("w", encoding="utf-8") as w:
             for row in ds:
                 w.write(json.dumps(row) + "\n")
@@ -46,7 +46,7 @@ def iter_texts_from_finance():
         with p.open("r", encoding="utf-8") as f:
             for line in f:
                 obj = json.loads(line)
-                txt = normalize(obj.get("newscontents", ""))
+                txt = normalize(obj.get("medical_abstract", ""))
 
                 if len(txt) > 30:
                     yield txt
