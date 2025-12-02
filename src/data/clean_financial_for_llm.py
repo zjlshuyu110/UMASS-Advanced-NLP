@@ -3,7 +3,7 @@ import json
 import re
 from datasets import load_dataset
 
-RAW_DIR = Path("data/raw/finance")
+RAW_DIR = Path("data/raw/financial")
 OUT_PATH = Path("data/processed/finance_mlm2.jsonl")
 
 def normalize(text: str) -> str:
