@@ -1,3 +1,14 @@
+"""
+Format as {"text": str, "label": int}
+
+LABEL_MAP = {
+    "negative": 0,
+    "neutral": 1,
+    "positive": 2
+}
+
+"""
+
 from pathlib import Path
 import json
 import re
