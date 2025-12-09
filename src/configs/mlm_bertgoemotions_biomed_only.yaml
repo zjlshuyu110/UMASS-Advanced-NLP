@@ -1,9 +1,10 @@
 model_name_or_path: "bhadresh-savani/bert-base-go-emotion"
 
-# 只使用已有的生物医学数据
+# 生物医学数据 (3个数据源, 23,101 samples)
 train_files:
-  - "data/processed/biomed_mlm.jsonl"
-  - "data/processed/biomed_mlm_2.jsonl"
+  - "data/processed/unlabel_bio_1.jsonl"
+  - "data/processed/unlabel_bio_2.jsonl"
+  - "data/processed/unlabel_bio_3.jsonl"
 
 output_dir: "outputs/mlm_bert_goemotions_biomed"
 

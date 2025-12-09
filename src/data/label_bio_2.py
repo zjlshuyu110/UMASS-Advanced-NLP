@@ -9,8 +9,7 @@ from datasets import load_dataset
 PROCESSED_DIR = Path("data/processed")
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-OUT_TRAIN = PROCESSED_DIR / "biomed_shekswess_train.jsonl"
-OUT_VAL   = PROCESSED_DIR / "biomed_shekswess_val.jsonl"
+OUT_PATH = PROCESSED_DIR / "label_bio_2.jsonl"  # Complete dataset
 
 
 def write_jsonl(df: pd.DataFrame, path: Path):
@@ -59,19 +58,12 @@ def load_shekswess_sentiment() -> pd.DataFrame:
     return df
 
 
-def main(test_size: float = 0.1, random_state: int = 42):
+def main():
     df = load_shekswess_sentiment()
 
-    train_df, val_df = train_test_split(
-        df,
-        test_size=test_size,
-        random_state=random_state,
-        stratify=df["label"],
-    )
-
-    write_jsonl(train_df, OUT_TRAIN)
-    write_jsonl(val_df, OUT_VAL)
-    print("🎉 Finished preparing Shekswess biomedical sentiment data for SFT.")
+    # Output complete dataset
+    write_jsonl(df, OUT_PATH)
+    print(f"🎉 Finished! Total {len(df)} Shekswess samples → {OUT_PATH}")
 
 
 if __name__ == "__main__":

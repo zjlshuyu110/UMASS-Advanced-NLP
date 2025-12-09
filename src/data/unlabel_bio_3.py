@@ -12,12 +12,14 @@ def normalize(text: str) -> str:
     return text.strip()
 
 
-def download_finance_if_needed():
+def download_medical_if_needed():
     """ 
     Download medical_text into RAW_DIR
     if not present.
     """
-    if not RAW_DIR.exists() or not any(RAW_DIR.iterdir()):
+    raw_path = RAW_DIR / "medical_text_raw.jsonl"
+    
+    if not raw_path.exists():
         print("Downloading medical_text from HuggingFace...")
 
         RAW_DIR.mkdir(parents=True, exist_ok=True)
@@ -26,24 +28,24 @@ def download_finance_if_needed():
         ds = load_dataset("123rc/medical_text", split="train")
 
         # Save raw JSONL for reproducibility
-        raw_path = RAW_DIR / "clean_bio_unlabel_3.jsonl"
         with raw_path.open("w", encoding="utf-8") as w:
             for row in ds:
                 w.write(json.dumps(row) + "\n")
 
-        print("Saved raw finance news to:", raw_path)
+        print("Saved raw medical text to:", raw_path)
     else:
-        print("Finance dataset already exists locally, skipping download.")
+        print("Medical text dataset already exists locally, skipping download.")
 
 
-def iter_texts_from_finance():
+def iter_texts_from_medical():
     """
     Iterate over raw HuggingFace JSONL and yield cleaned text.
     """
-    for p in RAW_DIR.glob("*.jsonl"):
-        print("Reading:", p)
-
-        with p.open("r", encoding="utf-8") as f:
+    raw_path = RAW_DIR / "medical_text_raw.jsonl"
+    
+    if raw_path.exists():
+        print("Reading:", raw_path)
+        with raw_path.open("r", encoding="utf-8") as f:
             for line in f:
                 obj = json.loads(line)
                 txt = normalize(obj.get("medical_abstract", ""))
@@ -56,16 +58,16 @@ def main():
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    download_finance_if_needed()
+    download_medical_if_needed()
 
     seen = set()
     with OUT_PATH.open("w", encoding="utf-8") as w:
-        for txt in iter_texts_from_finance():
+        for txt in iter_texts_from_medical():
             if txt not in seen:
                 seen.add(txt)
                 w.write(json.dumps({"text": txt}) + "\n")
 
-    print("Finished preprocessing finance dataset →", OUT_PATH)
+    print(f"✅ Done! Saved {len(seen)} medical text samples to {OUT_PATH}")
 
 
 if __name__ == "__main__":

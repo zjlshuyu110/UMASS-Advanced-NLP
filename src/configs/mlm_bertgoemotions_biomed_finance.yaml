@@ -1,12 +1,12 @@
 model_name_or_path: "bhadresh-savani/bert-base-go-emotion"
 
-# 生物医学 + 金融 unlabeled 混合训练
-# 用于通用域适应
+# 混合数据：生物医学 + 金融 (5个数据源, 63,036 samples)
 train_files:
-  - "data/processed/biomed_mlm.jsonl"
-  - "data/processed/biomed_mlm_2.jsonl"
-  - "data/processed/finance_mlm1.jsonl"
-  - "data/processed/finance_mlm2.jsonl"
+  - "data/processed/unlabel_bio_1.jsonl"
+  - "data/processed/unlabel_bio_2.jsonl"
+  - "data/processed/unlabel_bio_3.jsonl"
+  - "data/processed/unlabel_financial_1.jsonl"
+  - "data/processed/unlabel_financial_2.jsonl"
 
 output_dir: "outputs/mlm_bert_goemotions_biomed_finance"
 

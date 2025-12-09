@@ -1,0 +1,21 @@
+# Finance MLM模型 + LoRA adapter + 只用finance数据（领域对齐）
+model_name_or_path: "outputs/mlm_bert_goemotions_finance"
+
+train_files:
+  - "data/processed/finance_train.jsonl"
+
+eval_files:
+  - "data/processed/finance_test.jsonl"
+
+output_dir: "outputs/sft_6_finance_mlm_with_adapter"
+
+num_labels: 3
+batch_size: 8
+learning_rate: 5e-5
+epochs: 3
+label_map: "data/processed/label_map.json"
+
+use_lora: true
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.1
