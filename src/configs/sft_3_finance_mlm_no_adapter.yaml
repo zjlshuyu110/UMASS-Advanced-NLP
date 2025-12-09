@@ -1,11 +1,11 @@
-# src/configs/sft_3_finance_mlm_no_adapter.yaml
-model_name_or_path: "/content/drive/MyDrive/ANLP_models/mlm_biomed"
-#put correct path to the biomed mlm model above
+# Finance MLM模型 + 全量微调 + 只用finance数据（领域对齐）
+model_name_or_path: "outputs/mlm_bert_goemotions_finance"
 
 train_files:
-  - "data/processed/finance_sentiment_train.jsonl"
+  - "data/processed/finance_train.jsonl"
+
 eval_files:
-  - "data/processed/finance_sentiment_val.jsonl"
+  - "data/processed/finance_test.jsonl"
 
 output_dir: "outputs/sft_3_finance_mlm_no_adapter"
 

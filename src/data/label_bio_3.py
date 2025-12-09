@@ -12,7 +12,7 @@ RAW_CSV = Path(
 PROCESSED_DIR = Path("data/processed")
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-OUT_ALL = PROCESSED_DIR / "biomed_drug_reviews.jsonl"
+OUT_PATH = PROCESSED_DIR / "label_bio_3.jsonl"  # Complete dataset
 
 MAX_SAMPLES = 9000  # target total size
 
@@ -44,6 +44,23 @@ def write_jsonl(df: pd.DataFrame, path: Path):
     print(f"✅ Wrote {len(df)} rows to {path}")
 
 
+def download_drug_reviews_if_needed():
+    """Download drug reviews dataset from Kaggle if not present."""
+    if not RAW_CSV.exists():
+        print("📥 Downloading drug reviews dataset from Kaggle...")
+        import kagglehub
+        path = kagglehub.dataset_download("rohanharode07/webmd-drug-reviews-dataset")
+        print("Downloaded to:", path)
+        
+        # Find CSV file and copy to RAW_CSV location
+        RAW_CSV.parent.mkdir(parents=True, exist_ok=True)
+        for csv_file in Path(path).rglob("*.csv"):
+            RAW_CSV.write_bytes(csv_file.read_bytes())
+            print(f"Copied {csv_file.name} to {RAW_CSV}")
+            break
+    else:
+        print(f"Drug reviews CSV already exists at {RAW_CSV}")
+
 def load_and_clean_drug_reviews() -> pd.DataFrame:
     """
     Load the raw drug reviews CSV and normalize to columns: text, label.
@@ -52,11 +69,8 @@ def load_and_clean_drug_reviews() -> pd.DataFrame:
       - Reviews : the free-text review
       - Rating  : numeric rating 1–10
     """
-    if not RAW_CSV.exists():
-        raise FileNotFoundError(
-            f"Raw CSV not found at {RAW_CSV}. Place the drug review CSV there."
-        )
-
+    download_drug_reviews_if_needed()
+    
     print(f"📄 Loading drug reviews from {RAW_CSV} ...")
     df = pd.read_csv(RAW_CSV)
 
@@ -65,17 +79,20 @@ def load_and_clean_drug_reviews() -> pd.DataFrame:
     # Make sure the expected columns exist
     if "Reviews" not in df.columns:
         raise ValueError("Expected a 'Reviews' column in the drug reviews dataset.")
-    if "Rating" not in df.columns:
-        raise ValueError("Expected a 'Rating' column in the drug reviews dataset.")
+    
+    # Use 'Satisfaction' as the rating column (1-5 scale)
+    rating_col = "Satisfaction" if "Satisfaction" in df.columns else "Rating"
+    if rating_col not in df.columns:
+        raise ValueError(f"Expected a '{rating_col}' column in the drug reviews dataset.")
 
     # Keep only relevant columns for now
-    df = df[["Reviews", "Rating"]].copy()
+    df = df[["Reviews", rating_col]].copy()
 
     # Drop rows with missing reviews or ratings
-    df = df.dropna(subset=["Reviews", "Rating"])
+    df = df.dropna(subset=["Reviews", rating_col])
 
-    # Ensure Rating is numeric
-    df["Rating"] = pd.to_numeric(df["Rating"], errors="coerce")
+    # Ensure rating is numeric
+    df["Rating"] = pd.to_numeric(df[rating_col], errors="coerce")
     df = df.dropna(subset=["Rating"])
 
     # Map rating -> sentiment label
@@ -149,10 +166,9 @@ def main(random_state: int = 42):
     # Subsample to max_total rows (stratified)
     df_sub = stratified_subsample(df, max_total=MAX_SAMPLES, random_state=random_state)
 
-    # Write everything into ONE combined JSONL
-    write_jsonl(df_sub, OUT_ALL)
-
-    print("🎉 Finished preparing *combined* drug review sentiment data for SFT.")
+    # Output complete dataset
+    write_jsonl(df_sub, OUT_PATH)
+    print(f"🎉 Finished! Total {len(df_sub)} drug review samples → {OUT_PATH}")
 
 
 if __name__ == "__main__":

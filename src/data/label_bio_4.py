@@ -14,18 +14,18 @@ def normalize(text: str) -> str:
 
 
 def rating_to_label(rating):
-    """Map 1–5 ratings to 0/1/2 sentiment labels."""
+    """Map 1–5 ratings to negative/neutral/positive sentiment labels."""
     try:
         r = int(rating)
     except (TypeError, ValueError):
         return None
 
     if r in (1, 2):
-        return 0  # negative
+        return "negative"
     if r == 3:
-        return 1  # neutral
+        return "neutral"
     if r in (4, 5):
-        return 2  # positive
+        return "positive"
     return None
 
 
@@ -33,12 +33,15 @@ def download_if_needed():
     """
     Download hospital-reviews-dataset using kagglehub if it's not already present.
     """
-    if not RAW_DIR.exists() or not any(RAW_DIR.iterdir()):
+    # Check if we already have hospital review CSV files
+    hospital_csvs = list(RAW_DIR.glob("*hospital*.csv")) if RAW_DIR.exists() else []
+    
+    if not hospital_csvs:
         print("Downloading hospital-reviews-dataset from Kaggle...")
+        RAW_DIR.mkdir(parents=True, exist_ok=True)
+        
         path = kagglehub.dataset_download("junaid6731/hospital-reviews-dataset")
         print("Downloaded to:", path)
-
-        RAW_DIR.mkdir(parents=True, exist_ok=True)
 
         # Copy CSV files into our RAW_DIR
         num_copied = 0
@@ -49,27 +52,63 @@ def download_if_needed():
 
         print(f"Copied {num_copied} CSV file(s) to {RAW_DIR}")
     else:
-        print("RAW_DIR already has files, skipping download.")
+        print(f"Hospital CSV files already exist in {RAW_DIR}")
 
 
 def iter_reviews():
-    """Yield (text, label) pairs from all CSV files in RAW_DIR."""
-    for p in RAW_DIR.glob("*.csv"):
+    """Yield (text, label) pairs from hospital CSV files in RAW_DIR."""
+    csv_files = list(RAW_DIR.glob("*hospital*.csv"))
+    if not csv_files:
+        print(f"Warning: No hospital CSV files found in {RAW_DIR}")
+        return
+        
+    for p in csv_files:
         print("Reading:", p)
-        with p.open("r", encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                text = normalize(row.get("Feedback", ""))
-                rating = row.get("Ratings")
+        try:
+            with p.open("r", encoding="utf-8", newline="") as f:
+                reader = csv.DictReader(f)
+                # Print first row to debug column names
+                first_row = next(reader, None)
+                if first_row:
+                    print(f"Columns found: {list(first_row.keys())}")
+                    # Try different possible column names
+                    text_col = None
+                    rating_col = None
+                    
+                    for col in first_row.keys():
+                        if col.lower() in ['feedback', 'review', 'text', 'comment']:
+                            text_col = col
+                        if col.lower() in ['ratings', 'rating', 'score']:
+                            rating_col = col
+                    
+                    if not text_col or not rating_col:
+                        print(f"Warning: Could not find text/rating columns in {p}")
+                        continue
+                    
+                    # Process first row
+                    text = normalize(first_row.get(text_col, ""))
+                    rating = first_row.get(rating_col)
+                    if text and len(text) >= 5:
+                        label = rating_to_label(rating)
+                        if label is not None:
+                            yield text, label
+                    
+                    # Process remaining rows
+                    for row in reader:
+                        text = normalize(row.get(text_col, ""))
+                        rating = row.get(rating_col)
 
-                if not text or len(text) < 5:
-                    continue
+                        if not text or len(text) < 5:
+                            continue
 
-                label = rating_to_label(rating)
-                if label is None:
-                    continue
+                        label = rating_to_label(rating)
+                        if label is None:
+                            continue
 
-                yield text, label
+                        yield text, label
+        except Exception as e:
+            print(f"Error reading {p}: {e}")
+            continue
 
 
 def main():

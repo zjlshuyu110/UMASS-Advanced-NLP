@@ -1,0 +1,6 @@
+/var/spool/slurm/slurmd/job49494432/slurm_script: line 12: conda: command not found
+/var/spool/slurm/slurmd/job49494432/slurm_script: line 13: conda: command not found
+Traceback (most recent call last):
+  File "/project/pi_hongyu_umass_edu/zonghai/patientedu_image/xiong_2/UMASS-Advanced-NLP/src/models/finetune_sft.py", line 6, in <module>
+    from datasets import load_dataset, concatenate_datasets
+ModuleNotFoundError: No module named 'datasets'

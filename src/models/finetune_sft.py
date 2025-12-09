@@ -46,6 +46,7 @@ def main():
     base_model = AutoModelForSequenceClassification.from_pretrained(
         model_path,
         num_labels=num_labels,
+        ignore_mismatched_sizes=True,  # 忽略分类头尺寸不匹配，会重新初始化
     )
 
     # -------- optional LoRA adapters ----------
@@ -75,14 +76,25 @@ def main():
     def encode(ex):
         text = ex["text"]
         label = label_to_id[ex["label"]]
-        tok = tokenizer(text, truncation=True)
-        tok["labels"] = label
+        tok = tokenizer(text, truncation=True, max_length=512)
+        tok["label"] = label  # 注意：应该是"label"不是"labels"
         return tok
 
-    train_ds = train_ds.map(encode, batched=False)
-    eval_ds = eval_ds.map(encode, batched=False)
+    train_ds = train_ds.map(encode, batched=False, remove_columns=train_ds.column_names)
+    eval_ds = eval_ds.map(encode, batched=False, remove_columns=eval_ds.column_names)
+    
+    # 重命名label为labels (Trainer期望的字段名)
+    train_ds = train_ds.rename_column("label", "labels")
+    eval_ds = eval_ds.rename_column("label", "labels")
 
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
+    # -------- compute metrics ----------
+    def compute_metrics(eval_pred):
+        predictions, labels = eval_pred
+        predictions = predictions.argmax(axis=-1)
+        accuracy = (predictions == labels).mean()
+        return {"accuracy": accuracy}
 
     # -------- training arguments ----------
     training_args = TrainingArguments(
@@ -90,10 +102,10 @@ def main():
         learning_rate=float(config.get("learning_rate", 5e-5)),
         per_device_train_batch_size=int(config.get("batch_size", 8)),
         num_train_epochs=float(config.get("epochs", 3)),
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",  # 新版API: evaluation_strategy → eval_strategy
         save_strategy="epoch",
         load_best_model_at_end=True,
-        metric_for_best_model="accuracy",
+        metric_for_best_model="eval_loss",  # 使用loss作为指标
         report_to=[],  # no wandb/tensorboard by default
     )
 
@@ -104,6 +116,7 @@ def main():
         eval_dataset=eval_ds,
         data_collator=data_collator,
         tokenizer=tokenizer,
+        compute_metrics=compute_metrics,
     )
 
     trainer.train()

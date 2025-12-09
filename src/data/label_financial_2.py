@@ -27,33 +27,38 @@ def normalize(text: str) -> str:
 def download_finance_if_needed():
     """
     Download zeroshot/twitter-financial-news-sentiment dataset via HuggingFace.
-    Save the raw JSONL into data/raw/finance_news.
+    Save the raw JSONL into data/raw/financial.
     """
-    if not RAW_DIR.exists() or not any(RAW_DIR.iterdir()):
-        print("Downloading financial news dataset from HuggingFace...")
+    raw_path = RAW_DIR / "twitter_financial_sentiment.jsonl"
+    
+    if not raw_path.exists():
+        print("Downloading twitter-financial-news-sentiment from HuggingFace...")
 
         RAW_DIR.mkdir(parents=True, exist_ok=True)
 
         ds = load_dataset("zeroshot/twitter-financial-news-sentiment", split="train")
 
-        raw_path = RAW_DIR / "finance_raw.jsonl"
         with raw_path.open("w", encoding="utf-8") as w:
             for row in ds:
                 w.write(json.dumps(row) + "\n")
 
         print("Saved raw dataset →", raw_path)
     else:
-        print("Finance news raw files already exist, skipping download.")
+        print("Twitter financial sentiment already exists, skipping download.")
 
+
+LABEL_MAP = {0: "negative", 1: "neutral", 2: "positive"}
 
 def iter_texts_from_finance():
     """
-    Load the raw saved JSONL file and yield normalized tweet text + label.
+    Load the twitter financial sentiment JSONL and yield normalized text + label.
     """
-    for p in RAW_DIR.glob("*.jsonl"):
-        print("Reading:", p)
+    raw_path = RAW_DIR / "twitter_financial_sentiment.jsonl"
+    
+    if raw_path.exists():
+        print("Reading:", raw_path)
 
-        with open(p, "r", encoding="utf-8") as f:
+        with open(raw_path, "r", encoding="utf-8") as f:
             for line in f:
                 try:
                     obj = json.loads(line)
@@ -61,7 +66,13 @@ def iter_texts_from_finance():
                     continue
 
                 text = normalize(obj.get("text", ""))
-                label = obj.get("label", None)
+                label_num = obj.get("label", None)
+                
+                # Convert numeric label to string
+                if isinstance(label_num, int) and label_num in LABEL_MAP:
+                    label = LABEL_MAP[label_num]
+                else:
+                    continue
 
                 if len(text) > 0:
                     yield text, label

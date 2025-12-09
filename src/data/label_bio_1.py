@@ -9,8 +9,7 @@ import kagglehub
 PROCESSED_DIR = Path("data/processed")
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-OUT_TRAIN = PROCESSED_DIR / "biomed_doctor_reviews_train.jsonl"
-OUT_VAL   = PROCESSED_DIR / "biomed_doctor_reviews_val.jsonl"
+OUT_PATH = PROCESSED_DIR / "label_bio_1.jsonl"  # Complete dataset for K-fold
 
 
 def write_jsonl(df: pd.DataFrame, path: Path):
@@ -75,16 +74,9 @@ def load_doctor_reviews() -> pd.DataFrame:
 def main(test_size: float = 0.1, random_state: int = 42):
     df = load_doctor_reviews()
 
-    train_df, val_df = train_test_split(
-        df,
-        test_size=test_size,
-        random_state=random_state,
-        stratify=df["label"],
-    )
-
-    write_jsonl(train_df, OUT_TRAIN)
-    write_jsonl(val_df, OUT_VAL)
-    print("🎉 Finished preparing doctor review sentiment data for SFT.")
+    # Output complete dataset (no train/val split for K-fold cross-validation)
+    write_jsonl(df, OUT_PATH)
+    print(f"🎉 Finished! Total {len(df)} doctor review samples → {OUT_PATH}")
 
 
 if __name__ == "__main__":

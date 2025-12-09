@@ -1,0 +1,18 @@
+# Mixed MLM模型 + 全量微调 + 平衡混合数据
+model_name_or_path: "outputs/mlm_bert_goemotions_biomed_finance"
+
+train_files:
+  - "data/processed/mixed_balanced_train.jsonl"
+
+eval_files:
+  - "data/processed/mixed_balanced_test.jsonl"
+
+output_dir: "outputs/sft_4_mixed_mlm_no_adapter"
+
+num_labels: 3
+batch_size: 8
+learning_rate: 5e-5
+epochs: 3
+label_map: "data/processed/label_map.json"
+
+use_lora: false

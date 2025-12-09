@@ -32,40 +32,63 @@ def normalize(text: str) -> str:
 
 def download_investing_if_needed():
     """
-    Download investing_financial_news_headlines dataset from HuggingFace if not present.
+    Download financial phrasebank dataset from HuggingFace if not present.
     """
-    if not RAW_DIR.exists() or not any(RAW_DIR.iterdir()):
-        print("Downloading investing_financial_news_headlines from HuggingFace...")
-        ds = load_dataset("MASHXD/investing_financial_news_headlines", split="train")
+    raw_path = RAW_DIR / "financial_phrasebank.jsonl"
+    
+    if not raw_path.exists():
+        print("Downloading financial_phrasebank from HuggingFace...")
+        # Use the parquet URL that works
+        ds = load_dataset(
+            "parquet",
+            data_files="https://huggingface.co/datasets/takala/financial_phrasebank/resolve/4a94a2397c42fc3274b7db5632f913eb914e9e0f/sentences_50agree/financial_phrasebank-train.parquet"
+        )
         RAW_DIR.mkdir(parents=True, exist_ok=True)
 
-        raw_path = RAW_DIR / "investing_raw.jsonl"
         with raw_path.open("w", encoding="utf-8") as w:
-            for row in ds:
+            for row in ds['train']:
                 w.write(json.dumps(row) + "\n")
 
         print("Saved raw data →", raw_path)
     else:
-        print("Raw data already exists, skipping download.")
+        print("Financial phrasebank already exists, skipping download.")
 
 
-def iter_texts_from_investing():
+def iter_texts_from_phrasebank():
     """
-    Read raw JSONL and yield normalized text + numeric label.
+    Read financial phrasebank JSONL and yield normalized text + numeric label.
     """
-    for p in RAW_DIR.glob("*.jsonl"):
-        print("Reading:", p)
-        with open(p, "r", encoding="utf-8") as f:
+    raw_path = RAW_DIR / "financial_phrasebank.jsonl"
+    
+    if raw_path.exists():
+        print("Reading:", raw_path)
+        with open(raw_path, "r", encoding="utf-8") as f:
             for line in f:
                 try:
                     obj = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                text = normalize(obj.get("text", ""))
-                sentiment = obj.get("sentiment", None)
-                if not text or sentiment not in LABEL_MAP:
+                # Financial phrasebank has 'sentence' and 'label' fields
+                text = normalize(obj.get("sentence", ""))
+                sentiment = obj.get("label", "")
+                
+                # Map integer labels to strings
+                label_map = {0: "negative", 1: "neutral", 2: "positive"}
+                
+                if isinstance(sentiment, int) and sentiment in label_map:
+                    label = label_map[sentiment]
+                elif isinstance(sentiment, str):
+                    sentiment_lower = sentiment.lower()
+                    if sentiment_lower in STRING_LABELS:
+                        label = sentiment_lower
+                    else:
+                        continue
+                else:
                     continue
-                label = LABEL_MAP[sentiment]
+                    
+                if not text:
+                    continue
+                    
                 yield text, label
 
 
@@ -76,14 +99,16 @@ def main():
     download_investing_if_needed()
 
     seen = set()
+    count = 0
     with OUT_PATH.open("w", encoding="utf-8") as w:
-        for text, label in iter_texts_from_investing():
+        for text, label in iter_texts_from_phrasebank():
             key = (text, label)
             if key not in seen:
                 seen.add(key)
                 w.write(json.dumps({"text": text, "label": label}) + "\n")
+                count += 1
 
-    print("Finished preprocessing →", OUT_PATH)
+    print(f"✅ Finished! Wrote {count} samples → {OUT_PATH}")
 
 
 if __name__ == "__main__":
