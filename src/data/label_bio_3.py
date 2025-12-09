@@ -2,19 +2,19 @@ from pathlib import Path
 import json
 
 import pandas as pd
-from sklearn.model_selection import train_test_split
 
 
 # --------- Paths ---------
-RAW_CSV = Path("data/raw/DrugReviews.csv")   # <-- change if needed
+RAW_CSV = Path(
+    "/Users/user/Downloads/DrugRev A comprehensive customers reviews on drugs purchasing and satisfaction/DrugReviews.csv"
+)  # <-- change if needed
 
 PROCESSED_DIR = Path("data/processed")
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-OUT_TRAIN = PROCESSED_DIR / "biomed_drug_reviews_train.jsonl"
-OUT_VAL   = PROCESSED_DIR / "biomed_drug_reviews_val.jsonl"
+OUT_ALL = PROCESSED_DIR / "biomed_drug_reviews.jsonl"
 
-MAX_SAMPLES = 6000  # target total size
+MAX_SAMPLES = 9000  # target total size
 
 
 def rating_to_label(rating: float) -> str:
@@ -53,7 +53,9 @@ def load_and_clean_drug_reviews() -> pd.DataFrame:
       - Rating  : numeric rating 1–10
     """
     if not RAW_CSV.exists():
-        raise FileNotFoundError(f"Raw CSV not found at {RAW_CSV}. Place the drug review CSV there.")
+        raise FileNotFoundError(
+            f"Raw CSV not found at {RAW_CSV}. Place the drug review CSV there."
+        )
 
     print(f"📄 Loading drug reviews from {RAW_CSV} ...")
     df = pd.read_csv(RAW_CSV)
@@ -96,7 +98,9 @@ def load_and_clean_drug_reviews() -> pd.DataFrame:
     return df
 
 
-def stratified_subsample(df: pd.DataFrame, max_total: int, random_state: int = 42) -> pd.DataFrame:
+def stratified_subsample(
+    df: pd.DataFrame, max_total: int, random_state: int = 42
+) -> pd.DataFrame:
     """
     Subsample the dataset to at most max_total rows, stratified by label.
     If dataset is already smaller, returns as-is.
@@ -127,35 +131,28 @@ def stratified_subsample(df: pd.DataFrame, max_total: int, random_state: int = 4
     if remaining > 0:
         print(f"  Sampling additional {remaining} rows from remaining pool.")
         df_remaining = df.drop(subsampled.index)
-        extra = df_remaining.sample(
-            n=min(remaining, len(df_remaining)),
-            random_state=random_state,
-        )
-        subsampled = pd.concat([subsampled, extra], ignore_index=True)
+        if len(df_remaining) > 0:
+            extra = df_remaining.sample(
+                n=min(remaining, len(df_remaining)),
+                random_state=random_state,
+            )
+            subsampled = pd.concat([subsampled, extra], ignore_index=True)
 
     print("Label distribution (after subsampling):\n", subsampled["label"].value_counts())
     print(f"Final subsampled size: {len(subsampled)}")
     return subsampled
 
 
-def main(test_size: float = 0.1, random_state: int = 42):
+def main(random_state: int = 42):
     df = load_and_clean_drug_reviews()
 
     # Subsample to max_total rows (stratified)
     df_sub = stratified_subsample(df, max_total=MAX_SAMPLES, random_state=random_state)
 
-    # Train / val split
-    train_df, val_df = train_test_split(
-        df_sub,
-        test_size=test_size,
-        random_state=random_state,
-        stratify=df_sub["label"],
-    )
+    # Write everything into ONE combined JSONL
+    write_jsonl(df_sub, OUT_ALL)
 
-    write_jsonl(train_df, OUT_TRAIN)
-    write_jsonl(val_df, OUT_VAL)
-
-    print("🎉 Finished preparing drug review sentiment data for SFT.")
+    print("🎉 Finished preparing *combined* drug review sentiment data for SFT.")
 
 
 if __name__ == "__main__":
