@@ -215,7 +215,7 @@ __marimo__/
 .cache/
 *.csv
 *.tsv
-*.jsonl
+
 # Exclude models directory
 outputs/
 *.safetensors

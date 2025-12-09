@@ -76,7 +76,8 @@ def iter_texts_from_phrasebank():
                 label_map = {0: "negative", 1: "neutral", 2: "positive"}
                 
                 if isinstance(sentiment, int) and sentiment in label_map:
-                    label = label_map[sentiment]
+                    # label = label_map[sentiment]
+                    label = sentiment
                 elif isinstance(sentiment, str):
                     sentiment_lower = sentiment.lower()
                     if sentiment_lower in STRING_LABELS:
