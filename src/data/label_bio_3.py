@@ -14,7 +14,7 @@ PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
 OUT_PATH = PROCESSED_DIR / "label_bio_3.jsonl"  # Complete dataset
 
-MAX_SAMPLES = 9000  # target total size
+MAX_SAMPLES = 15000  # target total size
 
 
 def rating_to_label(rating: float) -> str:
