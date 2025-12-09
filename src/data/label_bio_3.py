@@ -25,11 +25,11 @@ def rating_to_label(rating: float) -> str:
       7-10 -> positive
     """
     if rating <= 4:
-        return "negative"
+        return "0"
     elif rating <= 6:
-        return "neutral"
+        return "1"
     else:
-        return "positive"
+        return "2"
 
 
 def write_jsonl(df: pd.DataFrame, path: Path):
