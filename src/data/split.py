@@ -4,10 +4,10 @@ import json
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-IN_PATH = Path("data/processed/label_bio_3.jsonl")
-OUT_TRAIN = Path("data/processed/bio_train.jsonl")
-OUT_VAL   = Path("data/processed/bio_val.jsonl")
-OUT_TEST  = Path("data/processed/bio_test.jsonl")
+IN_PATH = Path("data/processed/finance_combined.jsonl")
+OUT_TRAIN = Path("data/processed/label_financial_3_train.jsonl")
+OUT_VAL   = Path("data/processed/label_financial_3_val.jsonl")
+OUT_TEST  = Path("data/processed/label_financial_3_test.jsonl")
 
 
 def load_jsonl(path: Path):

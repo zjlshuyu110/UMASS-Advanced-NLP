@@ -215,6 +215,7 @@ __marimo__/
 .cache/
 *.csv
 *jsonl
+*json
 *.tsv
 
 # Exclude models directory
