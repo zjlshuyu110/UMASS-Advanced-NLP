@@ -1,174 +1,194 @@
 from pathlib import Path
 import json
-
+import re
 import pandas as pd
+from typing import Optional
 
 
 # --------- Paths ---------
 RAW_CSV = Path(
     "/Users/user/Downloads/DrugRev A comprehensive customers reviews on drugs purchasing and satisfaction/DrugReviews.csv"
-)  # <-- change if needed
+)  # change if needed
 
 PROCESSED_DIR = Path("data/processed")
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-OUT_PATH = PROCESSED_DIR / "label_bio_3.jsonl"  # Complete dataset
+OUT_PATH = PROCESSED_DIR / "label_bio_3_strict.jsonl"
 
-MAX_SAMPLES = 15000  # target total size
+# Target total size (after cleaning)
+MAX_SAMPLES = 15000
 
+# Filtering knobs
+MIN_TOKENS = 20
+MAX_TOKENS = 280          # 250-300 is a good range
+DROP_CONTRAST = False     # set True to drop mixed-sentiment "but/however" style reviews
 
-def rating_to_label(rating: float) -> str:
-    """
-    Map 1-10 rating to sentiment label:
-      1-4  -> negative
-      5-6  -> neutral
-      7-10 -> positive
-    """
-    if rating <= 4:
-        return "0"
-    elif rating <= 6:
-        return "1"
-    else:
-        return "2"
+# If your dataset uses Satisfaction on a 1-5 scale, set this True
+SCALE_1_TO_5 = False      # set True only if the ratings are 1..5
 
 
-def write_jsonl(df: pd.DataFrame, path: Path):
-    """Save DataFrame with columns ['text', 'label'] to JSONL."""
-    with path.open("w", encoding="utf-8") as f:
-        for _, row in df.iterrows():
-            rec = {
-                "text": str(row["text"]).strip(),
-                "label": str(row["label"]).strip(),
-            }
-            f.write(json.dumps(rec) + "\n")
-    print(f"✅ Wrote {len(df)} rows to {path}")
+CONTRAST_RE = re.compile(r"\b(but|however|although|though|yet|nevertheless)\b", re.IGNORECASE)
 
 
 def download_drug_reviews_if_needed():
-    """Download drug reviews dataset from Kaggle if not present."""
-    if not RAW_CSV.exists():
-        print("📥 Downloading drug reviews dataset from Kaggle...")
-        import kagglehub
-        path = kagglehub.dataset_download("rohanharode07/webmd-drug-reviews-dataset")
-        print("Downloaded to:", path)
-        
-        # Find CSV file and copy to RAW_CSV location
-        RAW_CSV.parent.mkdir(parents=True, exist_ok=True)
-        for csv_file in Path(path).rglob("*.csv"):
-            RAW_CSV.write_bytes(csv_file.read_bytes())
-            print(f"Copied {csv_file.name} to {RAW_CSV}")
-            break
-    else:
-        print(f"Drug reviews CSV already exists at {RAW_CSV}")
-
-def load_and_clean_drug_reviews() -> pd.DataFrame:
     """
-    Load the raw drug reviews CSV and normalize to columns: text, label.
-
-    Expected columns (at least):
-      - Reviews : the free-text review
-      - Rating  : numeric rating 1–10
+    Optional: download a Kaggle dataset if RAW_CSV doesn't exist.
+    NOTE: you might need to change dataset id to match your exact Kaggle source.
     """
-    download_drug_reviews_if_needed()
-    
-    print(f"📄 Loading drug reviews from {RAW_CSV} ...")
-    df = pd.read_csv(RAW_CSV)
+    if RAW_CSV.exists():
+        print(f"✅ Found local CSV: {RAW_CSV}")
+        return
 
-    print("Columns in CSV:", list(df.columns))
+    print("📥 RAW_CSV not found. Downloading drug reviews dataset from Kaggle via kagglehub...")
+    import kagglehub
 
-    # Make sure the expected columns exist
-    if "Reviews" not in df.columns:
-        raise ValueError("Expected a 'Reviews' column in the drug reviews dataset.")
-    
-    # Use 'Satisfaction' as the rating column (1-5 scale)
-    rating_col = "Satisfaction" if "Satisfaction" in df.columns else "Rating"
-    if rating_col not in df.columns:
-        raise ValueError(f"Expected a '{rating_col}' column in the drug reviews dataset.")
+    # If this isn't your dataset, change the Kaggle id here:
+    path = kagglehub.dataset_download("rohanharode07/webmd-drug-reviews-dataset")
+    print("Downloaded to:", path)
 
-    # Keep only relevant columns for now
-    df = df[["Reviews", rating_col]].copy()
+    RAW_CSV.parent.mkdir(parents=True, exist_ok=True)
 
-    # Drop rows with missing reviews or ratings
-    df = df.dropna(subset=["Reviews", rating_col])
+    csvs = list(Path(path).rglob("*.csv"))
+    if not csvs:
+        raise FileNotFoundError("No CSV found inside downloaded Kaggle dataset folder.")
 
-    # Ensure rating is numeric
-    df["Rating"] = pd.to_numeric(df[rating_col], errors="coerce")
-    df = df.dropna(subset=["Rating"])
-
-    # Map rating -> sentiment label
-    df["label"] = df["Rating"].apply(rating_to_label)
-
-    # Normalize text
-    df["text"] = df["Reviews"].astype(str).str.strip()
-
-    # Keep only what we need
-    df = df[["text", "label"]]
-
-    # Drop exact duplicate texts
-    before = len(df)
-    df = df.drop_duplicates(subset=["text"])
-    after = len(df)
-    print(f"🧹 Dropped {before - after} duplicate reviews. Remaining: {after}")
-
-    print("Label distribution (full dataset):\n", df["label"].value_counts())
-
-    return df
+    # Copy the first CSV found into RAW_CSV path
+    RAW_CSV.write_bytes(csvs[0].read_bytes())
+    print(f"✅ Copied {csvs[0].name} → {RAW_CSV}")
 
 
-def stratified_subsample(
-    df: pd.DataFrame, max_total: int, random_state: int = 42
-) -> pd.DataFrame:
+def map_rating_to_label(r: float) -> Optional[str]:
     """
-    Subsample the dataset to at most max_total rows, stratified by label.
-    If dataset is already smaller, returns as-is.
+    Strong-label mapping to reduce noise:
+      negative: 1-3
+      neutral:  5-6
+      positive: 8-10
+    Drop ambiguous ratings 4 and 7.
+
+    Returns:
+      "0" for negative, "1" for neutral, "2" for positive, or None to drop.
     """
-    n = len(df)
-    if n <= max_total:
-        print(f"Dataset has {n} rows (<= {max_total}), no subsampling needed.")
+    if SCALE_1_TO_5:
+        # Convert 1..5 into something comparable:
+        # 1-2 -> neg, 3 -> neutral, 4-5 -> pos
+        if r in (1, 2):
+            return "0"
+        if r == 3:
+            return "1"
+        if r in (4, 5):
+            return "2"
+        return None
+
+    # 1..10 scale
+    if 1 <= r <= 3:
+        return "0"
+    if 5 <= r <= 6:
+        return "1"
+    if 8 <= r <= 10:
+        return "2"
+    return None  # drop 4 and 7 (and anything weird)
+
+
+def count_tokens(text: str) -> int:
+    # simple whitespace token count (good enough for filtering)
+    return len(text.split())
+
+
+def write_jsonl(df: pd.DataFrame, path: Path):
+    with path.open("w", encoding="utf-8") as f:
+        for _, row in df.iterrows():
+            f.write(json.dumps({"text": row["text"], "label": row["label"]}) + "\n")
+    print(f"✅ Wrote {len(df)} rows → {path}")
+
+
+def stratified_subsample(df: pd.DataFrame, max_total: int, random_state: int = 42) -> pd.DataFrame:
+    if len(df) <= max_total:
+        print(f"Dataset has {len(df)} rows (<= {max_total}), no subsampling needed.")
         return df
 
-    print(f"Subsampling from {n} → {max_total} rows (stratified by label)...")
+    print(f"🔻 Subsampling from {len(df)} → {max_total} rows (stratified by label)")
+    labels = sorted(df["label"].unique())
+    per = max_total // len(labels)
 
-    num_labels = df["label"].nunique()
-    base_per_label = max_total // num_labels
-
-    # First pass: sample up to base_per_label per label
     parts = []
-    for label, group in df.groupby("label"):
-        k = min(len(group), base_per_label)
-        sampled = group.sample(n=k, random_state=random_state)
-        parts.append(sampled)
-        print(f"  Label '{label}': sampled {k} rows (group had {len(group)})")
+    for lab in labels:
+        g = df[df["label"] == lab]
+        k = min(len(g), per)
+        parts.append(g.sample(n=k, random_state=random_state))
+        print(f"  label {lab}: {k} sampled (from {len(g)})")
 
-    subsampled = pd.concat(parts, ignore_index=True)
+    out = pd.concat(parts, ignore_index=True)
 
-    # If we have fewer than max_total because some labels were small,
-    # we can sample additional rows from the remaining pool.
-    remaining = max_total - len(subsampled)
+    # top-up if needed
+    remaining = max_total - len(out)
     if remaining > 0:
-        print(f"  Sampling additional {remaining} rows from remaining pool.")
-        df_remaining = df.drop(subsampled.index)
-        if len(df_remaining) > 0:
-            extra = df_remaining.sample(
-                n=min(remaining, len(df_remaining)),
-                random_state=random_state,
-            )
-            subsampled = pd.concat([subsampled, extra], ignore_index=True)
+        pool = df.drop(out.index, errors="ignore")
+        if len(pool) > 0:
+            extra = pool.sample(n=min(remaining, len(pool)), random_state=random_state)
+            out = pd.concat([out, extra], ignore_index=True)
 
-    print("Label distribution (after subsampling):\n", subsampled["label"].value_counts())
-    print(f"Final subsampled size: {len(subsampled)}")
-    return subsampled
+    print("Label distribution (after subsampling):\n", out["label"].value_counts())
+    return out.sample(frac=1.0, random_state=random_state).reset_index(drop=True)
 
 
 def main(random_state: int = 42):
-    df = load_and_clean_drug_reviews()
+    download_drug_reviews_if_needed()
 
-    # Subsample to max_total rows (stratified)
-    df_sub = stratified_subsample(df, max_total=MAX_SAMPLES, random_state=random_state)
+    print(f"📄 Loading: {RAW_CSV}")
+    df = pd.read_csv(RAW_CSV)
+    print("Columns:", list(df.columns))
 
-    # Output complete dataset
+    # Identify text + rating columns
+    if "Reviews" not in df.columns:
+        raise ValueError("Expected a 'Reviews' column.")
+    rating_col = "Rating"
+    if rating_col not in df.columns:
+        # fallback for datasets that call it Satisfaction
+        if "Satisfaction" in df.columns:
+            rating_col = "Satisfaction"
+        else:
+            raise ValueError("Expected a 'Rating' (or 'Satisfaction') column.")
+
+    df = df[["Reviews", rating_col]].copy()
+    df = df.dropna(subset=["Reviews", rating_col])
+
+    df["rating"] = pd.to_numeric(df[rating_col], errors="coerce")
+    df = df.dropna(subset=["rating"])
+
+    # normalize text
+    df["text"] = df["Reviews"].astype(str).str.strip()
+
+    # map rating -> label, dropping ambiguous
+    df["label"] = df["rating"].apply(map_rating_to_label)
+    before = len(df)
+    df = df[df["label"].notna()].copy()
+    print(f"🧹 Dropped {before - len(df)} rows due to ambiguous ratings.")
+
+    # length filtering
+    df["tok_len"] = df["text"].apply(count_tokens)
+    before = len(df)
+    df = df[(df["tok_len"] >= MIN_TOKENS) & (df["tok_len"] <= MAX_TOKENS)].copy()
+    print(f"🧹 Dropped {before - len(df)} rows due to token-length filter [{MIN_TOKENS}, {MAX_TOKENS}].")
+
+    # optional contrast filtering
+    if DROP_CONTRAST:
+        before = len(df)
+        df = df[~df["text"].str.contains(CONTRAST_RE, regex=True)].copy()
+        print(f"🧹 Dropped {before - len(df)} rows due to contrast-word filter.")
+
+    # drop duplicates
+    before = len(df)
+    df = df.drop_duplicates(subset=["text"])
+    print(f"🧹 Dropped {before - len(df)} duplicate texts.")
+
+    print("✅ Label distribution (cleaned):\n", df["label"].value_counts())
+
+    # stratified subsample
+    df = df[["text", "label"]].reset_index(drop=True)
+    df_sub = stratified_subsample(df, MAX_SAMPLES, random_state=random_state)
+
     write_jsonl(df_sub, OUT_PATH)
-    print(f"🎉 Finished! Total {len(df_sub)} drug review samples → {OUT_PATH}")
+    print(f"🎉 Done: {len(df_sub)} samples saved to {OUT_PATH}")
 
 
 if __name__ == "__main__":

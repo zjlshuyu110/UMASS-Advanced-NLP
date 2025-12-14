@@ -1,66 +1,74 @@
 from pathlib import Path
 import json
-import random
+import pandas as pd
+
+# -----------------------------
+# Paths
+# -----------------------------
+FILE1 = Path("/Users/user/ANLP_Project/UMASS-Advanced-NLP/data/processed/label_bio_3_val.jsonl")   # <-- replace with your paths
+FILE2 = Path("/Users/user/ANLP_Project/UMASS-Advanced-NLP/data/processed/label_financial_3_val.jsonl")   # <-- replace
+OUT = Path("data/processed/lable_mixed_3_val.jsonl")
 
 
-def load_jsonl(path):
-    """Load JSONL into a list of dicts."""
-    records = []
-    with Path(path).open("r", encoding="utf-8") as f:
+def validate_label(label):
+    """Ensure label is numeric (0,1,2)."""
+    try:
+        label = int(label)
+    except:
+        raise ValueError(f"Label must be numeric: {label}")
+
+    if label not in {0, 1, 2}:
+        raise ValueError(f"Label must be 0,1,2. Got {label}")
+
+    return label
+
+
+def load_jsonl(path, source_name):
+    rows = []
+    with path.open() as f:
         for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            records.append(json.loads(line))
-    return records
+            obj = json.loads(line)
+            text = obj.get("text", "").strip()
+            label = validate_label(obj.get("label"))
+
+            rows.append({
+                "text": text,
+                "label": label,
+                "source": source_name
+            })
+    return pd.DataFrame(rows)
 
 
-def save_jsonl(records, out_path):
-    out_path = Path(out_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with out_path.open("w", encoding="utf-8") as f:
-        for rec in records:
-            f.write(json.dumps(rec) + "\n")
-    print(f"✅ Wrote {len(records)} examples to {out_path}")
+def main():
+    print("📥 Loading dataset 1...")
+    df1 = load_jsonl(FILE1, "dataset1")
 
+    print("📥 Loading dataset 2...")
+    df2 = load_jsonl(FILE2, "dataset2")
 
-def combine_datasets(input_files, output_file, add_source=False, shuffle=True, seed=42):
-    """
-    input_files: list of paths
-    output_file: single output path
-    add_source: if True, add a 'source' field indicating which file it came from
-    """
-    all_records = []
+    print("🔗 Combining...")
+    df = pd.concat([df1, df2], ignore_index=True)
 
-    for path in input_files:
-        path = Path(path)
-        print(f"📥 Loading {path} ...")
-        recs = load_jsonl(path)
+    # Remove duplicates
+    before = len(df)
+    df = df.drop_duplicates(subset=["text"])
+    after = len(df)
+    print(f"🧹 Removed {before - after} duplicates. Final size: {after}")
 
-        if add_source:
-            for r in recs:
-                r["source"] = path.stem  # e.g. 'biomed_drug_reviews_train'
+    # Shuffle for training setup
+    df = df.sample(frac=1, random_state=42).reset_index(drop=True)
 
-        all_records.extend(recs)
-        print(f"  Added {len(recs)} records from {path}")
+    # Write combined jsonl
+    with OUT.open("w", encoding="utf-8") as f:
+        for _, row in df.iterrows():
+            f.write(json.dumps({
+                "text": row["text"],
+                "label": row["label"],
+                "source": row["source"]
+            }) + "\n")
 
-    if shuffle:
-        random.seed(seed)
-        random.shuffle(all_records)
-        print(f"🔀 Shuffled {len(all_records)} total records")
-
-    save_jsonl(all_records, output_file)
+    print(f"✅ Saved merged dataset with numeric labels to {OUT}")
 
 
 if __name__ == "__main__":
-    # Example usage – adjust paths to match your repo
-
-    
-
-    # --- Finance train combined ---
-    finance_inputs = [
-        "data/processed/label_financial_2.jsonl",
-        "data/processed/label_financial_3.jsonl",
-    ]
-    finance_out = "data/processed/finance_combined.jsonl"
-    combine_datasets(finance_inputs, finance_out, add_source=True)
+    main()
